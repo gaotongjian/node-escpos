@@ -807,6 +807,205 @@ Printer.prototype.raw = function raw(data) {
   return this;
 };
 
+Printer.prototype.lineTitle = function lineTitle(title, charLength = 2) {
+  const strWidth = title.length * charLength;
+  const otherWidth = this.width - strWidth;
+  let str = '';
+  for (let i = 0; i < this.width; i += 1) {
+    if (i >= otherWidth / 2 && i < otherWidth / 2 + strWidth) {
+      const temp = str;
+      str += title;
+      str += temp;
+      break;
+    }
+    str += '-';
+  }
+
+  return this.align('CT').size(1, 1).text(str);
+}
+
+/**
+ * 文字左右对齐排版打印
+ * @param leftStr   左边文本
+ * @param rightStr    右边文本
+ * @param wrapByte 左边文本多少个字节后折行
+ */
+Printer.prototype.controlText = function controlText(leftStr, rightStr, wrapByte = 32) {
+  var l_bytes = utils.bytesLength(leftStr.toString());
+  var r_bytes = utils.bytesLength(rightStr.toString());
+
+  let str = '';
+  let tempStr = '';
+  let leftText = '';
+
+  let spaceLength = 0;
+  if (l_bytes > wrapByte) {
+    tempStr = leftStr.substring(wrapByte / 2, leftStr.length);
+    leftText = leftStr.substring(0, wrapByte / 2);
+    const tempBytes = utils.bytesLength(leftText);
+    spaceLength = this.width - tempBytes - r_bytes;
+
+    for (let i = 0; i < spaceLength; i++) {
+      leftText += ' '
+    }
+    str = leftText + rightStr;
+
+    this.text(str);
+    this.text(tempStr);
+  } else {
+    spaceLength = this.width - l_bytes - r_bytes;
+    leftText = leftStr;
+    for (let i = 0; i< spaceLength; i++) {
+      leftText += ' ';
+    }
+    str = leftText + rightStr;
+    this.text(str);
+  }
+  return this;
+}
+
+/**
+ * 文字三列布局
+ * @param text 文本
+ * @param wrapByte 左边文本多少个字节后折行
+   */
+Printer.prototype.threeColumnLayout = function threeColumnLayout(text, wrapByte = 32) {
+  const l_bytes = utils.bytesLength(text.leftTxt.toString());
+  const c_bytes = utils.bytesLength(text.centerTxt.toString());
+  const r_bytes = utils.bytesLength(text.rightTxt.toString());
+
+  let str = '';
+  let tempStr = '';
+  let spaceLength = 0;
+  const width = this.width;
+
+  if (l_bytes > wrapByte) {
+    tempStr = text.leftTxt.substring(wrapByte / 2, text.leftTxt.length);
+    str = text.leftTxt.substring(0, wrapByte / 2);
+    const tempBytes = utils.bytesLength(text.leftTxt);
+
+    if (text.leftSpace) {
+      this.text(utils.spaceText(str,text.rightTxt, width));
+    } else {
+      spaceLength = (width - tempBytes - c_bytes - r_bytes) / 2;
+      spaceLength = Number(Math.round(spaceLength))
+
+      for (let i = 0; i < spaceLength; i++) {
+        str += ' '
+      }
+      str = str + text.centerTxt
+      
+      for (let i = 0; i < spaceLength; i++) {
+        str += ' '
+      }
+      str = str + text.rightTxt;
+      this.text(str);
+    }
+    this.text(tempStr);
+  } else {
+    str = text.leftTxt;
+
+    if (text.leftSpace) {
+      const txtL = utils.spaceText(str, text.centerTxt, text.leftSpace)
+      const txt = utils.spaceText(txtL, text.rightTxt, width);
+      
+      this.text(txt);
+    } else {
+      spaceLength = (width - l_bytes - c_bytes - r_bytes) / 2;
+      spaceLength = Number(Math.floor(spaceLength))
+      
+      for (let i = 0; i< spaceLength; i++) {
+        str+=' '
+      }
+      str = str + text.centerTxt
+      for(let i = 0; i< spaceLength; i++) {
+        str+=' ';
+      }
+
+      str = str + text.rightTxt;
+      this.text(str);
+    }
+  }
+     
+  return this;
+}
+
+/**
+ * 四列表格布局
+ * @param {{text:string; space?:number}[]} thead 表头
+ * @param {Tbody[]} tbody  内容
+ * @param wrapByte 折行字节
+ * @interface Tbody {
+ * title?:string;
+ * col1:string;
+ * col2:string;
+ * col3:string;
+ * col4:string;
+ * }
+ */
+Printer.prototype.fourColumnLayout = function (thead, tbody, wrapByte = 16) {
+  // const width = this.width;
+  if (thead && thead.length > 0) {
+
+    const th1_length = utils.bytesLength(thead[0].text.toString()) + utils.bytesLength(thead[1].text.toString()) + thead[0].space;
+    const th2_length = th1_length + thead[1].space + utils.bytesLength(thead[1].text.toString());
+    const th3_length = th2_length + thead[2].space + utils.bytesLength(thead[2].text.toString());
+    
+    
+    let h_str = thead[0].text;
+
+    for(let i = 0;i < thead[0].space; i++) {
+      h_str+=' '
+    }
+    h_str = h_str + thead[1].text;
+    for(let i = 0; i< thead[1].space; i++) {
+      h_str+=' '
+    }
+    h_str = h_str + thead[2].text;
+    for(let i = 0;i < thead[2].space; i++) {
+      h_str+=' '
+    }
+    h_str = h_str + thead[3].text;
+
+    this.text(h_str);
+
+    tbody.forEach((itemx,index)=>{
+      
+      let txt1 = '';
+      
+      const firstTxtBytes = utils.bytesLength(itemx.col1.toString());
+      let tempStr = '';
+      if (firstTxtBytes > wrapByte) {
+        tempStr = itemx.col1.substring(wrapByte / 2, itemx.col1.length);
+        const subStr = itemx.col1.substring(0, wrapByte/2);
+        txt1 = utils.spaceText(subStr, itemx.col2, th1_length);
+      } else {
+        txt1 = utils.spaceText(itemx.col1, itemx.col2, th1_length);
+      }
+
+      if (itemx.title) {
+        this.align('LT').text(itemx.title)
+      }
+      const txt2 = utils.spaceText(txt1, itemx.col3, th2_length);
+      const txt3 = utils.spaceText(txt2, itemx.col4, th3_length);
+      if (itemx.options) {
+        this.text(txt3)
+      } else {
+        this.text(txt3)
+      }
+      if (tempStr != '') {
+        if (itemx.options) {
+          this.text(tempStr)
+        } else {
+          this.text(tempStr)
+        }  
+      }
+    })
+
+  }
+  return this;
+}
+
 
 /**
  * Printer Supports
